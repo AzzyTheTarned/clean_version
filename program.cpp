@@ -3,12 +3,18 @@
 
 using namespace std;
 
-int main(){
+int main()
+{
     int a;
     float b = 15;
     float bb;
-    cout<<b;
-    cin>>a;
-    string str = "strg";
-    cin>>bb;
+    b = 15 + 15 + false == 30;
+    b += 15 + 25;
+    while ("penis" + "penis" == "pizdec") {
+        cout << b;
+        cout << "Pamagiti";
+    }
+    cin >> a;
+    string str = "bebrabebrabebra";
+    cin >> bb;
 }
