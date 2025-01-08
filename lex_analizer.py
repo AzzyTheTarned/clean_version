@@ -1,6 +1,5 @@
 import re
 
-
 class LexicalAnalyzer:
     # Token row
     lin_num = 1

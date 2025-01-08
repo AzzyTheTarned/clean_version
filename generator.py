@@ -17,6 +17,14 @@ class CodeGenerator:
                 self.generate(child)
             self.code.append("}")
             self.code.append("}")
+        elif node.node_type == 'While':
+            for child in node.children:
+                if child.node_type == 'Condition':
+                    self.code.append(f'while ({" ".join([sub_child.value for sub_child in child.children])})' + '{')
+                if child.node_type == 'Body':
+                    for sub_child in child.children:
+                        self.generate(sub_child)
+                    self.code.append('}')
         elif node.node_type == 'Body':
             for child in node.children:
                 self.generate(child)
@@ -32,6 +40,10 @@ class CodeGenerator:
                 self.code.append(f'{var_type} {identifier} = {node.children[2].value};')
             else:
                 self.code.append(f'{var_type} {identifier};')
+        elif node.node_type == 'Assignment':
+            identifier = node.children[0].value
+            assign_operator = node.children[1].value
+            self.code.append(f'{identifier} {assign_operator} {" ".join([child.value for child in node.children[2:]])};')
         elif node.node_type == 'Cout':
             self.code.append(f'System.out.println({node.value});')
         # сложные махинации с Cin

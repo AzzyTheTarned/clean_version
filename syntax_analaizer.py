@@ -149,11 +149,105 @@ class Parser:
             node.add_child(self.parse_cin())
         elif token.token == 'ID':
             node.add_child(self.parse_assignment())
+        elif token.token == 'K4':
+            node.add_child(self.parse_while())
+        # тут надо сделать проверку на if и class, однако в прошлом коде и у нас тут по разному выглядит, так что хз как это делать
+
         else:
             print('exeption', token.token, token.row, token.column, self.position)
             raise Exception('ошибка в блоке кода')
         return node
 
+
+    #сюда добавил if и class болки, надо только их объявить в parse_code_block что бы проверить
+
+    def ifBlock(self, spp, indent):
+        self.show(indent, 'ifBlock', spp)
+        indent += ' '
+        spp1 = spp
+
+        if self.tokens[spp] == 'K6':  # if
+            spp += 1
+            if self.tokens[spp] == 'D6':  # (
+                spp += 1
+                if self.tokens[spp] == 'ID':  # условие
+                    spp += 1
+                    if self.tokens[spp] == 'O24':  # ==
+                        spp += 1
+                        if self.tokens[spp] == 'N1':  # число
+                            spp += 1
+                            if self.tokens[spp] == 'D7':  # )
+                                spp += 1
+                                if self.tokens[spp] == 'D4':  # {
+                                    spp += 1
+                                    # Рекурсивная проверка тела блока
+                                    res, spp = self.body(spp, indent)
+                                    if res and self.tokens[spp] == 'D5':  # }
+                                        return True, spp + 1
+        return False, spp1
+    
+    def statement(self, spp, indent):
+        indent += ' '
+        if spp < len(self.tokens) and self.tokens[spp] in ['K6']:  # if
+            return self.ifStatement(spp, indent)
+        # Добавить другие типы statement: while, for, присваивания и т.д.
+        return False, spp
+
+    def ifStatement(self, spp, indent):
+        self.show(indent, 'ifStatement', spp)
+        indent += ' '
+        thistokenlist = ['K6', 'D6', 'ID', 'O24', 'N1', 'D7', 'D4']
+        res, spp = self.checkTokensList(spp, thistokenlist)
+        if res:
+            res, spp = self.body(spp, indent)
+            return res and self.tokens[spp] == 'D5', spp + 1
+        return False, spp
+
+    def classBlock(self, spp, indent):
+        self.show(indent, 'classBlock', spp)
+        indent += ' '
+        spp1 = spp
+        thistokenlist = ['K9', 'ID', 'O29', 'ID', 'D4']  # Ожидаемый список токенов для начала класса
+        res, spp = self.checkTokensList(spp, thistokenlist)
+        if res:
+            # После успешной проверки на начало класса, проходим по телу класса
+            while spp < len(self.tokens) and self.tokens[spp] != 'D5':  # Ищем конец класса (D5)
+                res, spp = self.classBody(spp, indent)
+                if not res:
+                    return False, spp  # Если не удалось обработать тело класса, возвращаем False
+            # Если мы дошли до D5, значит, класс завершен
+            if self.tokens[spp] == 'D5':
+                return True, spp + 1  # Пропускаем D5 и возвращаем результат
+        thistokenlist = ['ID', 'ID', 'O23', 'ID', 'D6', 'N1', 'D7', 'D3']
+        res, spp = self.checkTokensList(spp, thistokenlist)
+        if res:
+            return True, spp + 1
+        print(spp)
+        return False, spp1  # Если проверка не прошла, возвращаем False и оригинальный индекс
+
+    def classBody(self, spp, indent):
+        self.show(indent, 'classBody', spp)
+        indent += ' '
+        spp1 = spp
+        if self.tokens[spp] == 'ID' and self.tokens[spp + 1] == 'D6':  # Constructor
+            while self.tokens[spp] != 'D5':
+                spp += 1
+            return True, spp + 1
+        # Проверка для обычных методов, например, сеттеров или геттеров
+        if self.tokens[spp] in ['K20', 'K17'] and self.tokens[spp + 1] == 'ID':  # Метод
+            while self.tokens[spp] != 'D5':spp += 1
+            return True, spp + 1
+        # Если переменная
+        if self.tokens[spp] in ['K17', 'K18', 'K22']:  # Типы данных
+            if self.tokens[spp + 1] == 'ID':  # Переменная
+                while self.tokens[spp] != 'D5':
+                    spp += 1
+                return True, spp + 1
+
+        return False, spp1
+    
+    #конец добавления
+    
     def parse_declaration(self):
         '''Парсит объявление переменных'''
         token = self.current_token()
@@ -223,20 +317,38 @@ class Parser:
         node = Node('Assignment')
         node.add_child(self.parse_identifier())
         token = self.current_token()
-        if token.token == 'O23':
-            self.consume('O23')
-            node.add_child(Node('AssigOperator', token.lexeme))
-            token = self.current_token()
-            if token.token == 'ID' or token.token == 'N1' or token.token == 'N2' or token.token == 'N3':
-                self.consume(token.token)
-                node.add_child(Node('Operand', token.lexeme))
-                if self.tokens[self.position].token == 'D3':
-                    self.consume('D3')
-                    return node
-                else:
-                    raise Exception('ошибка выражения3')
+        if token.token == 'O2':
+            node.add_child(Node('++Operator', token.lexeme))
+            self.consume('O2')
+            if self.tokens[self.position].token == 'D3':
+                self.consume('D3')
+                return node
+
+        if token.token == 'O5':
+            node.add_child(Node('--Operator', token.lexeme))
+            self.consume('O5')
+            if self.tokens[self.position].token == 'D3':
+                self.consume('D3')
+                return node
+
+        if token.token in ['O23', 'O6', 'O3', 'O8', 'O10', 'O12', 'O24']:
+            if token.token == 'O24':
+                node.add_child(Node('Operator', token.lexeme))
             else:
-                raise Exception('ошибка выражения2')
+                node.add_child(Node('AssigOperator', token.lexeme))
+            self.consume(token.token)
+            node.add_child(self.parse_expression())
+            while self.tokens[self.position].token != 'D3':
+                token = self.current_token()
+                if token.token in ['O1', 'O4', 'O7', 'O11', 'O9', 'O24']:
+                    node.add_child(Node('Operator', token.lexeme))
+                    self.consume(token.token)
+                    node.add_child(self.parse_expression())
+            if self.tokens[self.position].token == 'D3':
+                self.consume('D3')
+                return node
+            else:
+                raise Exception('ошибка выражения3')
         else:
             raise Exception('ошибка выражения1')
 
@@ -255,8 +367,57 @@ class Parser:
             value_node = Node('String', token.lexeme)
             self.consume('N3')
             return value_node
+        elif token.token == 'K21' or token.token == 'K23':
+            value_node = Node('Boolean', token.lexeme)
+            self.consume(token.token)
+            return value_node
         else:
             raise Exception('Expected expression')
+
+    def parse_while(self):
+        '''Парсит цикл while'''
+        node = Node('While')
+        token = self.current_token()
+
+        if token.token == 'K4':
+            self.consume('K4')
+            condition_node = Node('Condition')
+            token = self.current_token()
+
+            if token.token == 'D6':
+                self.consume('D6')
+                condition_node.add_child(self.parse_expression())
+                token = self.current_token()
+
+                while token.token != 'D7':
+                    if token.token in ['O1', 'O4', 'O7', 'O11', 'O9', 'O24']:
+                        condition_node.add_child(Node('Operator', token.lexeme))
+                        self.consume(token.token)
+                        condition_node.add_child(self.parse_expression())
+                    token = self.current_token()
+
+                if token.token == 'D7':
+                    self.consume('D7')
+                    node.add_child(condition_node)
+
+                    if self.current_token().token == 'D4':
+                        self.consume('D4')
+                        body_node = Node('Body')
+
+                        while self.current_token().token != 'D5':
+                            body_node.add_child(self.parse_code_block())
+
+                        self.consume('D5')
+                        node.add_child(body_node)
+                        return node
+                    else:
+                        raise Exception('Expected "{" after while condition')
+                else:
+                    raise Exception('Expected ")" after while condition')
+            else:
+                raise Exception('Expected "(" after while')
+        else:
+            raise Exception('Expected "while" keyword')
 
     def print_syntax_tree(self, node, level=0):
         '''Рекурсивно выводит синтаксическое дерево.'''
